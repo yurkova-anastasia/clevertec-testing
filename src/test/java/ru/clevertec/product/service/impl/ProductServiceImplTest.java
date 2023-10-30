@@ -1,6 +1,6 @@
 package ru.clevertec.product.service.impl;
 
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,16 +17,21 @@ import ru.clevertec.product.data.ProductDto;
 import ru.clevertec.product.entity.Product;
 import ru.clevertec.product.exception.ProductNotFoundException;
 import ru.clevertec.product.mapper.ProductMapper;
-import ru.clevertec.product.repository.ProductRepository;
+import ru.clevertec.product.repository.impl.InMemoryProductRepository;
 import ru.clevertec.product.util.ProductTestData;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -37,13 +42,28 @@ import static ru.clevertec.product.util.ProductTestData.uuidExample;
 class ProductServiceImplTest {
 
     @Mock
-    private ProductRepository productRepository;
+    private InMemoryProductRepository productRepository;
+
     @Mock
     private ProductMapper productMapper;
+
     @InjectMocks
     private ProductServiceImpl productService;
+
     @Captor
     private ArgumentCaptor<Product> productCaptor;
+
+    @BeforeEach
+    void setup() {
+        Product product = ProductTestData.builder().build().buildProduct();
+        Product product2 = ProductTestData.builder()
+                .withUuid(UUID.fromString("61f0c404-5cb3-11e7-907b-a6006ad3dba1"))
+                .withName("banana")
+                .withCreated(LocalDateTime.of(2023, Month.OCTOBER, 28, 18, 0, 0))
+                .build().buildProduct();
+        productRepository.getProductMap().put(product.getUuid(), product);
+        productRepository.getProductMap().put(product2.getUuid(), product2);
+    }
 
     @Nested
     class GetById {
@@ -55,15 +75,14 @@ class ProductServiceImplTest {
             Optional<Product> optionalProduct = Optional.of(product);
             InfoProductDto expected = ProductTestData.builder().build().buildInfoProductDto();
 
-            // when
             when(productRepository.findById(uuidExample)).thenReturn(optionalProduct);
-            when(productMapper.toInfoProductDto(optionalProduct.get())).thenReturn(expected);
+            when(productMapper.toInfoProductDto(product)).thenReturn(expected);
+
+            // when
             InfoProductDto actual = productService.getById(uuidExample);
 
             //then
-            verify(productRepository).findById(uuidExample);
-            verify(productMapper).toInfoProductDto(optionalProduct.get());
-            Assertions.assertEquals(expected, actual);
+            assertEquals(expected, actual);
         }
 
         @Test
@@ -71,7 +90,6 @@ class ProductServiceImplTest {
             // given
             UUID uuid = UUID.randomUUID();
 
-            // when
             when(productRepository.findById(uuid)).thenReturn(Optional.empty());
 
             //then
@@ -94,21 +112,17 @@ class ProductServiceImplTest {
                 .build().buildInfoProductDto();
         List<InfoProductDto> expected = List.of(infoProductDto1, infoProductDto2);
 
-
-        // when
         when(productRepository.findAll()).thenReturn(products);
         when(productMapper.toInfoProductDto(product1)).thenReturn(infoProductDto1);
         when(productMapper.toInfoProductDto(product2)).thenReturn(infoProductDto2);
 
+        // when
         List<InfoProductDto> actual = productService.getAll();
 
         // then
-        verify(productRepository).findAll();
-        verify(productMapper).toInfoProductDto(product1);
-        verify(productMapper).toInfoProductDto(product2);
-
-        Assertions.assertEquals(expected.size(), actual.size());
-        Assertions.assertEquals(expected, actual);
+        assertAll(
+                () -> assertEquals(expected.size(), actual.size()),
+                () -> assertEquals(expected, actual));
     }
 
     @Nested
@@ -122,10 +136,10 @@ class ProductServiceImplTest {
             ProductDto productDto = ProductTestData.builder()
                     .build().buildProductDto();
 
-            // when
             when(productMapper.toProduct(productDto)).thenReturn(productToSave);
             when(productRepository.save(productToSave)).thenReturn(productToSave);
 
+            // when
             productService.create(productDto);
 
             // then
@@ -138,14 +152,15 @@ class ProductServiceImplTest {
         @MethodSource("invalidProductDtoProvider")
         void create_shouldThrowException_whenInvalidProduct(ProductDto invalidProductDto) {
             // when/then
-            Assertions.assertThrows(IllegalArgumentException.class, () -> productService.create(invalidProductDto));
+            assertThrows(IllegalArgumentException.class, () -> productService.create(invalidProductDto));
         }
 
         private static Stream<ProductDto> invalidProductDtoProvider() {
             return Stream.of(
                     new ProductDto(null, "Sample Description", BigDecimal.valueOf(10.0)),
                     new ProductDto("Sample Product", null, BigDecimal.valueOf(10.0)),
-                    new ProductDto("Sample Product", "Sample Description", null)
+                    new ProductDto("Sample Product", "Sample Description", null),
+                    new ProductDto("Sample Product", "Sample Description", BigDecimal.valueOf(-0.2))
             );
         }
     }
@@ -165,21 +180,22 @@ class ProductServiceImplTest {
             Product updatedProduct = new Product(uuidExample, productDto.name(),
                     productDto.description(), productDto.price());
 
-            // when
             when(productMapper.merge(product, productDto))
                     .thenReturn(updatedProduct);
-
             when(productRepository.save(Mockito.any(Product.class)))
                     .thenReturn(updatedProduct);
             when(productRepository.findById(uuidExample)).thenReturn(Optional.of(product));
+
+            // when
 
             productService.update(uuidExample, productDto);
 
             // then
             verify(productRepository).save(productCaptor.capture());
 
-            Assertions.assertNotNull(productCaptor.getValue());
-            Assertions.assertEquals(updatedProduct, productCaptor.getValue());
+            assertAll(
+                    () -> assertNotNull(productCaptor.getValue()),
+                    () -> assertEquals(updatedProduct, productCaptor.getValue()));
         }
 
         @Test
@@ -192,7 +208,6 @@ class ProductServiceImplTest {
                     .withPrice(BigDecimal.valueOf(15.0))
                     .build().buildProductDto();
 
-            //when
             when(productRepository.findById(nonExistentUUID)).thenReturn(Optional.empty());
 
             // then
@@ -200,27 +215,12 @@ class ProductServiceImplTest {
         }
     }
 
-    @Nested
-    class Delete {
+    @Test
+    void delete_shouldDeleteProduct_whenProductExist() {
+        // when
+        productService.delete(uuidExample);
 
-        @Test
-        void delete_shouldDeleteProduct_whenProductExist() {
-            // given
-            Product product = ProductTestData.builder().build().buildProduct();
-            Optional<Product> optionalProduct = Optional.of(product);
-
-            // when
-            when(productRepository.findById(uuidExample)).thenReturn(optionalProduct);
-            productService.delete(uuidExample);
-
-            // then
-            verify(productRepository, times(1)).delete(uuidExample);
-        }
-
-        @Test
-        void delete_shouldThrowException_whenProductDoNotExist() {
-            // when/then
-            Assertions.assertThrows(ProductNotFoundException.class, () -> productService.delete(UUID.randomUUID()));
-        }
+        // then
+        verify(productRepository, times(1)).delete(uuidExample);
     }
 }

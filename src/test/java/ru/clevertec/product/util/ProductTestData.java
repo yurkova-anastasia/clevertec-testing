@@ -34,7 +34,7 @@ public class ProductTestData {
             LocalDateTime.of(2023, Month.OCTOBER, 28, 17, 0, 0);
 
     public Product buildProduct() {
-        return new Product(uuidExample, name, description, price, created);
+        return new Product(uuid, name, description, price, created);
     }
 
     public ProductDto buildProductDto() {
@@ -42,6 +42,6 @@ public class ProductTestData {
     }
 
     public InfoProductDto buildInfoProductDto() {
-        return new InfoProductDto(uuidExample, name, description, price);
+        return new InfoProductDto(uuid, name, description, price);
     }
 }

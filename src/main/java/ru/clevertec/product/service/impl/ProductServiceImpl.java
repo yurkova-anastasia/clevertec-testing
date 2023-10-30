@@ -9,6 +9,7 @@ import ru.clevertec.product.mapper.ProductMapper;
 import ru.clevertec.product.repository.ProductRepository;
 import ru.clevertec.product.service.ProductService;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,7 +37,8 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public UUID create(ProductDto productDto) {
         if (productDto == null || productDto.name() == null
-                || productDto.description() == null || productDto.price() == null) {
+                || productDto.description() == null || productDto.price() == null
+                || productDto.price().compareTo(BigDecimal.ZERO) < 1) {
             throw new IllegalArgumentException("ProductDto or its fields cannot be null");
         }
         Product product = mapper.toProduct(productDto);
@@ -49,14 +51,11 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(uuid).orElseThrow(() ->
                 new ProductNotFoundException(uuid));
         Product updatedProduct = mapper.merge(product, productDto);
-        updatedProduct.setUuid(uuid);
         productRepository.save(updatedProduct);
     }
 
     @Override
     public void delete(UUID uuid) {
-        productRepository.findById(uuid).orElseThrow(() ->
-                new ProductNotFoundException(uuid));
         productRepository.delete(uuid);
     }
 }

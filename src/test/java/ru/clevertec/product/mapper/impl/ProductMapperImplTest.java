@@ -1,16 +1,17 @@
 package ru.clevertec.product.mapper.impl;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 import ru.clevertec.product.data.InfoProductDto;
 import ru.clevertec.product.data.ProductDto;
 import ru.clevertec.product.entity.Product;
 import ru.clevertec.product.mapper.ProductMapper;
-import ru.clevertec.product.mapper.ProductMapperImpl;
 import ru.clevertec.product.util.ProductTestData;
 
 import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ProductMapperImplTest {
 
@@ -18,7 +19,7 @@ class ProductMapperImplTest {
 
     @BeforeEach
     void setUp() {
-        productMapper = new ProductMapperImpl();
+        productMapper = Mappers.getMapper(ProductMapper.class);
     }
 
     @Test
@@ -26,15 +27,15 @@ class ProductMapperImplTest {
         // given
         ProductDto productDto = ProductTestData.builder().build().buildProductDto();
         Product expected = ProductTestData.builder()
+                .withUuid(null)
                 .withCreated(null)
                 .build().buildProduct();
-        expected.setUuid(null);
 
         // when
         Product actual = productMapper.toProduct(productDto);
 
         // then
-        Assertions.assertEquals(expected, actual);
+        assertEquals(expected, actual);
 
     }
 
@@ -48,14 +49,18 @@ class ProductMapperImplTest {
         InfoProductDto actual = productMapper.toInfoProductDto(product);
 
         // then
-        Assertions.assertEquals(expected, actual);
+        assertEquals(expected, actual);
     }
 
     @Test
     void merge_shouldUpdateNameDescriptionAndPriceAndDoNotChangeUuidAndCreatedDate() {
         // given
         Product product = ProductTestData.builder().build().buildProduct();
-        ProductDto productDto = new ProductDto("newName", "newDescription", BigDecimal.valueOf(2.2));
+        ProductDto productDto = ProductTestData.builder()
+                .withName("newName")
+                .withDescription("newDescription")
+                .withPrice(BigDecimal.valueOf(2.2))
+                .build().buildProductDto();
         Product expected = new Product(product.getUuid(), productDto.name(), productDto.description(),
                 productDto.price(), product.getCreated());
 
@@ -63,6 +68,6 @@ class ProductMapperImplTest {
         Product actual = productMapper.merge(product, productDto);
 
         // then
-        Assertions.assertEquals(expected, actual);
+        assertEquals(expected, actual);
     }
 }

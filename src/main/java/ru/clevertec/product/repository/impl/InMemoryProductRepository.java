@@ -1,48 +1,47 @@
 package ru.clevertec.product.repository.impl;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import ru.clevertec.product.entity.Product;
 import ru.clevertec.product.repository.ProductRepository;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.Month;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class InMemoryProductRepository implements ProductRepository {
 
-    private final Product product = new Product(UUID.fromString("61f0c404-5cb3-11e7-907b-a6006ad3dba0"),
-            "apple", "green", BigDecimal.valueOf(1.1),
-            LocalDateTime.of(2023, Month.OCTOBER, 28, 17, 0, 0));
-
-    private final Product product2 = new Product(UUID.fromString("61f0c404-5cb3-11e7-907b-a6006ad3dba1"),
-            "banana", "green", BigDecimal.valueOf(1.1),
-            LocalDateTime.of(2023, Month.OCTOBER, 28, 18, 0, 0));
-
-    public List<Product> products = new ArrayList<>(List.of(product, product2));
+    private Map<UUID, Product> productMap;
 
     @Override
     public Optional<Product> findById(UUID uuid) {
-        return products.stream()
-                .filter(p -> p.getUuid().equals(uuid))
-                .findFirst();
+        return Optional.ofNullable(productMap.get(uuid));
     }
 
     @Override
     public List<Product> findAll() {
-        return products;
+        return List.copyOf(productMap.values());
     }
 
     @Override
     public Product save(Product product) {
-        products.add(product);
+        UUID uuid = UUID.randomUUID();
+        product.setUuid(uuid);
+        if (product.getUuid() == null) {
+            throw new IllegalArgumentException("UUID must be set before saving the product");
+        }
+        productMap.put(product.getUuid(), product);
         return product;
     }
 
     @Override
     public void delete(UUID uuid) {
-        products.removeIf(p -> p.getUuid().equals(uuid));
+        productMap.remove(uuid);
     }
 }
